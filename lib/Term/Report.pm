@@ -7,7 +7,7 @@
   use Term::ANSIScreen qw(:cursor :color :constants);
   $Term::ANSIScreen::AUTORESET = 1;
   our $CR;
-  our $VERSION = do { my @r=(q$Revision: 1.5 $=~/\d+/g); sprintf "%d."."%02d"x$#r,@r };
+  our $VERSION = do { my @r=(q$Revision: 1.8 $=~/\d+/g); sprintf "%d."."%02d"x$#r,@r };
 
   sub new {
       my $class = shift;
@@ -52,16 +52,23 @@
       }
 
 
-  ###############################
+  ###############################################
   # Unload modules we don't need
-  ###############################
+  #
+  # Placed a workaround in there for Perl 5.6.0 
+  # that seems to bomb on 'no MODULE';
+  ###############################################
 
       if (!$self->{numFormat}){
-          no Number::Format;
+          if (do { my @r=($]=~/\d+/g); sprintf "%d."."%02d"x$#r,@r } >= 5.6001){
+              no Number::Format;
+          }
       }
 
       if (!$self->{statusBar}){
-          no Term::StatusBar;
+          if (do { my @r=($]=~/\d+/g); sprintf "%d."."%02d"x$#r,@r } >= 5.6001){
+              no Term::StatusBar;
+          }
       }
 
 
@@ -190,6 +197,29 @@
   }
 
 
+###########################
+# Prints out a bar report. 
+###########################
+
+  sub printBarReport {
+      my $self = shift;
+      my ($header, $config) = @_;
+
+      return if !defined $self->{statusBar};
+      $self->printLine($header);
+
+      for my $k (keys %{$config}){
+          my $num = int(($self->{statusBar}->{scale}/$self->{statusBar}->{totalItems}) * $config->{$k});
+
+          if ($num < length($config->{$k})){
+              $num = length($config->{$k});
+          }
+
+          $self->printLine($k, WHITE ON BLACK REVERSE, $config->{$k}, " "x($num), "\n");
+      }
+  }
+
+
 1;
 __END__
 
@@ -248,8 +278,14 @@ Term::Report - Easy way to create dynamic 'reports' from within scripts.
         $status->update;
     }
 
-
-    $report->printLine("\n\nAll done now\n\n");
+    $report->printBarReport(
+        "\n\n\n\n    Summary for widgets: \n\n",
+        {
+            "       Total:        " => $items,
+            "       Good Widgets: " => $items-$discard,
+            "       Bad Widgets:  " => $discard,
+        }
+    );
 
 =head1 DESCRIPTION
 

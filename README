@@ -49,7 +49,14 @@ SYNOPSIS
             $status->update;
         }
 
-        $report->printLine("\n\nAll done now\n\n");
+        $report->printBarReport(
+            "\n\n\n\n    Summary for widgets: \n\n",
+            {
+                "       Total:        " => $items,
+                "       Good Widgets: " => $items-$discard,
+                "       Bad Widgets:  " => $discard,
+            }
+        );
 
 DESCRIPTION
     Term::Report can be used to generate nicely formatted dynamic output. It

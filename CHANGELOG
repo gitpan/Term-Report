@@ -1,6 +1,11 @@
+4/3/2002
+	+ Fixed problem for Perl 5.6.0 where a 'no MODULE' call 
+	  would not work.
+
 4/2/2002
 	+ Added lineLength(m). Returns length of $obj->{m}.
 	+ Fixed dsplay problem with printLine().
+	+ Added printBarReport() for creating a simple bar representation.
 
 4/1/2002
 	+ Added a README and CHANGELOG file
