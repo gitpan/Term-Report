@@ -61,7 +61,7 @@ SYNOPSIS
 DESCRIPTION
     Term::Report can be used to generate nicely formatted dynamic output. It
     can also use Term::StatusBar to show progress and Number::Format so
-    numbers show up more readable.
+    numbers show up more readable. All output is sent to STDOUT.
 
 METHODS
   new(parameters)

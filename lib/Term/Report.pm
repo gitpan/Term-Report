@@ -53,22 +53,16 @@
 
 
   ###############################################
-  # Unload modules we don't need
-  #
-  # Placed a workaround in there for Perl 5.6.0 
-  # that seems to bomb on 'no MODULE';
+  # Unload modules we don't need. Commented out 
+  # since Perl 5.6.0 users have problems.
   ###############################################
 
       if (!$self->{numFormat}){
-          if (do { my @r=($]=~/\d+/g); sprintf "%d."."%02d"x$#r,@r } >= 5.6001){
-              no Number::Format;
-          }
+          #no Number::Format;
       }
 
       if (!$self->{statusBar}){
-          if (do { my @r=($]=~/\d+/g); sprintf "%d."."%02d"x$#r,@r } >= 5.6001){
-              no Term::StatusBar;
-          }
+          #no Term::StatusBar;
       }
 
 
@@ -291,7 +285,7 @@ Term::Report - Easy way to create dynamic 'reports' from within scripts.
 
 Term::Report can be used to generate nicely formatted dynamic output. It can 
 also use Term::StatusBar to show progress and Number::Format so numbers show 
-up more readable.
+up more readable. All output is sent to STDOUT.
 
 =head1 METHODS
 
