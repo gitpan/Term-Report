@@ -1,3 +1,7 @@
+4/2/2002
+	+ Added lineLength(m). Returns length of $obj->{m}.
+	+ Fixed dsplay problem with printLine().
+
 4/1/2002
 	+ Added a README and CHANGELOG file
 	+ Added some tests

@@ -1,9 +1,8 @@
 #!/usr/bin/perl
 
   my $pkg = 'Term-Report';
-  my $ver = "1.01";
-  unlink("../$pkg-$ver.tar.gz");
-  `./build_manifest.pl; ./build_readme.pl`;
+  my $ver = "1.02";
+  `rm -f ../*.gz; ./build_manifest.pl; ./build_readme.pl`;
 
   open FILE, "../MANIFEST";
   my $str;

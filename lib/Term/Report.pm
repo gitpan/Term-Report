@@ -7,13 +7,14 @@
   use Term::ANSIScreen qw(:cursor :color :constants);
   $Term::ANSIScreen::AUTORESET = 1;
   our $CR;
-  our $VERSION = do { my @r=(q$Revision: 1.4 $=~/\d+/g); sprintf "%d."."%02d"x$#r,@r };
+  our $VERSION = do { my @r=(q$Revision: 1.5 $=~/\d+/g); sprintf "%d."."%02d"x$#r,@r };
 
   sub new {
       my $class = shift;
       my (%params) = @_;
 
       my $self = bless {
+		curText => '',
 		prevText => '',
 		currentRow => $params{startRow} || 1,
 		startRow => $params{startRow} || 1,
@@ -168,11 +169,24 @@
           }
           else{
               $self->{currentRow} += ($self->{prevText} =~ s/\n/\n/g);
+              $self->{currentRow} += ($text =~ s/^\n//g);
+              locate $self->{currentRow}, $self->{startCol};
               $self->{prevText} = $text;
           }
       }
 
+      $self->{curText} = $text;
       print $text;
+  }
+
+
+#########################
+# Returns length of text
+#########################
+
+  sub lineLength {
+      my $self = shift;
+      length $self->{shift()};
   }
 
 
@@ -189,32 +203,59 @@ Term::Report - Easy way to create dynamic 'reports' from within scripts.
 
     use Term::Report;
 
+    my $items = 10000;
     my $report = Term::Report->new(
-            startRow => 3,
+            startRow => 4,
             numFormat => 1,
-            statusBar => [label => 'Report Status: '],
+            statusBar => [label => 'Report Status: ', subText => 'Locating widgets', subTextAlign => 'center'],
     );
 
     my $status = $report->{statusBar};  ## Alias this cause I'm lazy
-    $status->setItems(10000);
+    $status->setItems($items);
     $status->start;
 
-    my $string = "Total widgets I found so far... ";
-    $report->printLine($string);
+    $report->printLine("Total widgets I found so far... ");
+    my $discard = 0;
 
-    for (1..10000){
-        sleep 1 if !$_ % 1000;
-        $report->finePrint($report->{currentRow}, length($string)+1, $_);
+    for (1..$items){
+        $report->finePrint($report->currentRow(), $report->lineLength('curText')+1, $_);
+
+        if (!($_%(rand(1000)+1000))){
+            $discard++;
+            $status->subText("Discarding bad widget");
+            for my $t (1..1000000){ ## Fake like we are doing something
+                $status->subText($status->subText() . "..") if !($t%900000);
+            }
+        }
+        else{
+            $status->subText("Locating widgets");
+        }
+
         $status->update;
     }
+
+    $report->printLine("\n  $discard widgets were discarded\n");
+
+    $status->reset;
+    $status->setItems($items-$discard);
+    $status->subText('Processing widgets');
+    $status->start;
+
+    $report->printLine("\nInventorying widgets... ");
+
+    for (1..($items-$discard)){
+        $report->finePrint($report->currentRow(), $report->lineLength('curText')+1, $_);
+        $status->update;
+    }
+
 
     $report->printLine("\n\nAll done now\n\n");
 
 =head1 DESCRIPTION
 
-Term::Report can be used to generate nicely formatted dynamic output.
-It can also use Term::StatusBar to show progress and Number::Format  
-to make numbers more readable.
+Term::Report can be used to generate nicely formatted dynamic output. It can 
+also use Term::StatusBar to show progress and Number::Format so numbers show 
+up more readable.
 
 =head1 METHODS
 
@@ -244,6 +285,10 @@ This gives more control over where to place text.
 
 This places text after the last known text has been placed. It tries very hard to 
 "Do The Right Thing", but I am certain there are more 'bugs' in it.
+
+=head2 lineLength('m')
+
+Returns length($obj->{m})
 
 =head1 AUTHOR
 
