@@ -1,11 +1,12 @@
 package Term::Report;
+no warnings 'portable';
 
 $|++;
 require 5.6.0;
 use Number::Format qw(format_number);
 use Term::StatusBar;
-our $CR;
-our $VERSION = do { my @r=(q$Revision: 1.12 $=~/\d+/g); sprintf "%d."."%02d"x$#r,@r };
+our ($CR, $FH);
+our $VERSION = do { my @r=(q$Revision: 1.3 $=~/\d+/g); sprintf "%d."."%02d"x$#r,@r };
 
 
 sub new {
@@ -21,7 +22,10 @@ sub new {
       statusBar   => $params{statusBar},
       SP          => {},   ## Save point list
       noPrint     => 0,    ## Delays printing of text
+      fh          => $params{fh}       || *STDOUT,
   }, ref $class || $class;
+
+  $FH = $self->{fh};
 
   ## Do we want to format numbers?
   if ($self->{numFormat} eq '1'){
@@ -37,9 +41,10 @@ sub new {
 
   ## Do we have a Term::StatusBar? 
   if ($self->{statusBar} eq '1'){
-    $self->{statusBar} = Term::StatusBar->new;
+    $self->{statusBar} = Term::StatusBar->new(fh=>$self->{fh});
   }
   elsif (ref $self->{statusBar} eq 'ARRAY'){
+    push @{$self->{statusBar}}, ("fh", $self->{fh});
     $self->{statusBar} = Term::StatusBar->new(@{$self->{statusBar}});
   }
 
@@ -51,7 +56,7 @@ sub new {
   $CR = \$self->{currentRow};
   $SIG{INT} = \&{__PACKAGE__."::sigint"};
 
-  if (!defined $params{cls} || $params{cls}){ print "\e[2J"; }
+  if (!defined $params{cls} || $params{cls}){ print $FH "\e[2J"; }
 
   return $self;
 }
@@ -65,7 +70,7 @@ sub DESTROY { sigint(); }
 ## need to be able to reset the display.
 ##
 sub sigint {
-  print "\e[$$CR;1H\e[0m\n\n";
+  print $FH "\e[$$CR;1H\e[0m\n\n";
   exit;
 }
 
@@ -106,7 +111,7 @@ sub finePrint {
       ## flickering as much as possible
       if (!$self->{SP}->{$label}->reset){
         ## Clear current row to replace text
-        print "\e[$row;1H\e[K";
+        print $FH "\e[$row;1H\e[K";
         $text = $t.$text;
         $self->{SP}->{$label}->reset(1);
         $col = $self->{SP}->{$label}->col;
@@ -120,13 +125,13 @@ sub finePrint {
     }
   }
 
-  print "\e[$row;${col}H";
+  print $FH "\e[$row;${col}H";
 
   if ($self->{numFormat}){
     $text =~ s/(\d+)/$self->{numFormat}->format_number($1)/sge;
   }
 
-  print $text;
+  print $FH $text;
 }
 
 
@@ -144,7 +149,7 @@ sub printLine {
 
   if (!$self->{prevText}){
     $self->adjustCurRow(\$text);
-    print "\e[$self->{currentRow};$self->{startCol}H";
+    print $FH "\e[$self->{currentRow};$self->{startCol}H";
     $self->{prevText} = $text;
   }
   else{
@@ -152,23 +157,23 @@ sub printLine {
       if ($text =~ /^\n/){
         $self->adjustCurRow(\$text);
         $self->{prevText} = $text;
-        print "\e[$self->{currentRow};$self->{startCol}H";
+        print $FH "\e[$self->{currentRow};$self->{startCol}H";
       }
       else{
         $self->{prevText} .= $text;
-        print "\e[$self->{currentRow};", (length($self->{prevText})), "H";
+        print $FH "\e[$self->{currentRow};", (length($self->{prevText})), "H";
       }
     }
     else{
       $self->{currentRow} += ($self->{prevText} =~ s/\n/\n/g);
       $self->adjustCurRow(\$text);
       $self->{prevText} = $text;
-      print "\e[$self->{currentRow};$self->{startCol}H";
+      print $FH "\e[$self->{currentRow};$self->{startCol}H";
     }
   }
 
   $self->{curText} = $text;
-  print $text if !$self->{noPrint};
+  print $FH $text if !$self->{noPrint};
 }
 
 
@@ -262,70 +267,65 @@ Term::Report - Easy way to create dynamic 'reports' from within scripts.
 
 =head1 SYNOPSIS
 
-    use Term::Report;
+   use Term::Report;
+   use Time::HiRes qw(usleep);
 
-    my $items = 100;
-    my $report = Term::Report->new(
+   my $items = 100;
+   my $report = Term::Report->new(
             startRow => 4,
             numFormat => 1,
             statusBar => [
                label => 'Widget Analysis: ',
                subText => 'Locating widgets',
                subTextAlign => 'center',
+               showTime=>1
             ],
-    );
+   );
 
-    my $status = $report->{statusBar};
-    $status->setItems($items);
-    $status->start;
+   my $status = $report->{statusBar};
+   $status->setItems($items);
+   $status->start;
 
-    $report->savePoint('total', "Total widgets: ", 1);
-    $report->savePoint('discarded', "\n  Widgets discarded: ", 1);
+   $report->savePoint('total', "Total widgets: ", 1);
+   $report->savePoint('discarded', "\n  Widgets discarded: ", 1);
 
-    for (1..$items){
-        $report->finePrint('total', 0, $_);
+   for (1..$items){
+      $report->finePrint('total', 0, $_);
 
-        if (!($_%int((rand(10)+rand(10)+1)))){
-            $report->finePrint('discarded', 0, ++$discard);
-            $status->subText("Discarding bad widget");
-            for my $t (1..1000000){ } ##Fake like we are doing something
-        }
-        else{
-            $status->subText("Locating widgets");
-        }
+      if (!($_%int((rand(10)+rand(10)+1)))){
+         $report->finePrint('discarded', 0, ++$discard);
+         $status->subText("Discarding bad widget");
+      }
+      else{
+         $status->subText("Locating widgets");
+      }
 
-        $status->update;
-    }
+      usleep(75000);
+      $status->update;
+   }
 
-    $status->reset({reverse=>1, subText=>'Processing widgets', start=>1, setItems=>($items-$discard)});
-    -- OR --
-    $status->reset();
-    $status->reverse(1);
-    $status->setItems($items-$discard);
-    $status->subText('Processing widgets');
-    $status->start;
+   $status->reset({reverse=>1, subText=>'Processing widgets', setItems=>($items-$discard), start=>1});
+   $report->savePoint('inventory', "\n\nInventorying widgets... ", 1);
 
-    $report->savePoint('inventory', "\n\nInventorying widgets... ", 1);
+   for (1..($items-$discard)){
+      $report->finePrint('inventory', 0, $_);
+      $status->update;
+   }
 
-    for (1..($items-$discard)){
-        $report->finePrint('inventory', 0, $_);
-        $status->update;
-    }
-
-    $report->printBarReport(
-        "\n\n\n\n    Summary for widgets: \n\n",
-        {
+   $report->printBarReport(
+      "\n\n\n\n    Summary for widgets: \n\n",
+      {
             "       Total:        " => $items,
             "       Good Widgets: " => $items-$discard,
             "       Bad Widgets:  " => $discard,
-        }
-    );
+      }
+   );
 
 =head1 DESCRIPTION
 
 Term::Report can be used to generate nicely formatted dynamic output. It can 
 also use Term::StatusBar to show progress and Number::Format so numbers show 
-up more readable. All output is sent to STDOUT.
+up more readable. All output is sent to STDOUT by default.
 
 The current release may not be compatible with previous code. Many changes were 
 made with regards to how output could be formatted.
@@ -338,16 +338,16 @@ made with regards to how output could be formatted.
    startRow  - This indicates which row to start at. Default is 1.
    startCol  - This indicates which column to start at. Default is 1.
    numFormat - This indicates if you want to use Number::Format. Default is undef.
-   statusBar - This indicats if you want to use Term::StatusBar. Default is undef.
-
+   statusBar - This indicates if you want to use Term::StatusBar. Default is undef.
+   fh        - User-defined file handle. This is passed on to Term::StatusBar. Default is STDOUT.
 
 numFormat and statusBar can be passed in 2 different ways.
 
 The first way is as a simple flag:
-	numFormat => 1
+    numFormat => 1
 
 Or as an array reference with parameters for a Number::Format object:
-	numFormat => [-MON_DECIMAL_POINT => ',', -INT_CURR_SYMBOL => '']
+    numFormat => [-MON_DECIMAL_POINT => ',', -INT_CURR_SYMBOL => '']
 
 statusBar behaves the same way except takes parameters appropriate for Term::StatusBar.
 
@@ -385,13 +385,17 @@ print the $text, or to delay it.
 
 =head1 CHANGES
 
-2003-01-27
-   Removed the dependency for Term::ANSIScreen.
-   Added savePoint() method for easy referncing of screen locations.
-   Adjusted finePrint() to work with savePoint().
-   Added 'cls' flag to constructor to clear the screen.
-   Cleaned up code a bit with minor optimizations.
-   Reduced screen flicker by quite a bit.
+   2003-05-06
+      Added "no warnings 'portable'" so Perl 5.8 would be happy.
+      Added ability to send in a file handle to print to.
+
+   2003-01-27
+      Removed the dependency for Term::ANSIScreen.
+      Added savePoint() method for easy referncing of screen locations.
+      Adjusted finePrint() to work with savePoint().
+      Added 'cls' flag to constructor to clear the screen.
+      Cleaned up code a bit with minor optimizations.
+      Reduced screen flicker by quite a bit.
 
 =head1 AUTHOR
 

@@ -1,67 +1,62 @@
 SYNOPSIS
-        use Term::Report;
+       use Term::Report;
+       use Time::HiRes qw(usleep);
 
-        my $items = 100;
-        my $report = Term::Report->new(
+       my $items = 100;
+       my $report = Term::Report->new(
                 startRow => 4,
                 numFormat => 1,
                 statusBar => [
                    label => 'Widget Analysis: ',
                    subText => 'Locating widgets',
                    subTextAlign => 'center',
+                   showTime=>1
                 ],
-        );
+       );
 
-        my $status = $report->{statusBar};
-        $status->setItems($items);
-        $status->start;
+       my $status = $report->{statusBar};
+       $status->setItems($items);
+       $status->start;
 
-        $report->savePoint('total', "Total widgets: ", 1);
-        $report->savePoint('discarded', "\n  Widgets discarded: ", 1);
+       $report->savePoint('total', "Total widgets: ", 1);
+       $report->savePoint('discarded', "\n  Widgets discarded: ", 1);
 
-        for (1..$items){
-            $report->finePrint('total', 0, $_);
+       for (1..$items){
+          $report->finePrint('total', 0, $_);
 
-            if (!($_%int((rand(10)+rand(10)+1)))){
-                $report->finePrint('discarded', 0, ++$discard);
-                $status->subText("Discarding bad widget");
-                for my $t (1..1000000){ } ##Fake like we are doing something
-            }
-            else{
-                $status->subText("Locating widgets");
-            }
+          if (!($_%int((rand(10)+rand(10)+1)))){
+             $report->finePrint('discarded', 0, ++$discard);
+             $status->subText("Discarding bad widget");
+          }
+          else{
+             $status->subText("Locating widgets");
+          }
 
-            $status->update;
-        }
+          usleep(75000);
+          $status->update;
+       }
 
-        $status->reset({reverse=>1, subText=>'Processing widgets', start=>1, setItems=>($items-$discard)});
-        -- OR --
-        $status->reset();
-        $status->reverse(1);
-        $status->setItems($items-$discard);
-        $status->subText('Processing widgets');
-        $status->start;
+       $status->reset({reverse=>1, subText=>'Processing widgets', setItems=>($items-$discard), start=>1});
+       $report->savePoint('inventory', "\n\nInventorying widgets... ", 1);
 
-        $report->savePoint('inventory', "\n\nInventorying widgets... ", 1);
+       for (1..($items-$discard)){
+          $report->finePrint('inventory', 0, $_);
+          $status->update;
+       }
 
-        for (1..($items-$discard)){
-            $report->finePrint('inventory', 0, $_);
-            $status->update;
-        }
-
-        $report->printBarReport(
-            "\n\n\n\n    Summary for widgets: \n\n",
-            {
+       $report->printBarReport(
+          "\n\n\n\n    Summary for widgets: \n\n",
+          {
                 "       Total:        " => $items,
                 "       Good Widgets: " => $items-$discard,
                 "       Bad Widgets:  " => $discard,
-            }
-        );
+          }
+       );
 
 DESCRIPTION
     Term::Report can be used to generate nicely formatted dynamic output. It
     can also use Term::StatusBar to show progress and Number::Format so
-    numbers show up more readable. All output is sent to STDOUT.
+    numbers show up more readable. All output is sent to STDOUT by default.
 
     The current release may not be compatible with previous code. Many
     changes were made with regards to how output could be formatted.
@@ -72,7 +67,8 @@ METHODS
        startRow  - This indicates which row to start at. Default is 1.
        startCol  - This indicates which column to start at. Default is 1.
        numFormat - This indicates if you want to use Number::Format. Default is undef.
-       statusBar - This indicats if you want to use Term::StatusBar. Default is undef.
+       statusBar - This indicates if you want to use Term::StatusBar. Default is undef.
+       fh        - User-defined file handle. This is passed on to Term::StatusBar. Default is STDOUT.
 
     numFormat and statusBar can be passed in 2 different ways.
 
@@ -113,11 +109,17 @@ METHODS
     immediately print the $text, or to delay it.
 
 CHANGES
-    2003-01-27 Removed the dependency for Term::ANSIScreen. Added
-    savePoint() method for easy referncing of screen locations. Adjusted
-    finePrint() to work with savePoint(). Added 'cls' flag to constructor to
-    clear the screen. Cleaned up code a bit with minor optimizations.
-    Reduced screen flicker by quite a bit.
+       2003-05-06
+          Added "no warnings 'portable'" so Perl 5.8 would be happy.
+          Added ability to send in a file handle to print to.
+
+       2003-01-27
+          Removed the dependency for Term::ANSIScreen.
+          Added savePoint() method for easy referncing of screen locations.
+          Adjusted finePrint() to work with savePoint().
+          Added 'cls' flag to constructor to clear the screen.
+          Cleaned up code a bit with minor optimizations.
+          Reduced screen flicker by quite a bit.
 
 AUTHOR
     Shay Harding <sharding@ccbill.com>

@@ -1,9 +1,9 @@
-Makefile.PL
-MANIFEST
-README
 CHANGELOG
-t/use.t
+MANIFEST
+Makefile.PL
+README
 tools/build_manifest.pl
-tools/package_up.pl
 tools/build_readme.pl
+tools/package_up.pl
+t/use.t
 lib/Term/Report.pm
