@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
   my $pkg = 'Term-Report';
-  my $ver = "1.10";
+  my $ver = "1.16";
   `rm -f ../*.gz; ./build_manifest.pl; ./build_readme.pl`;
 
   open FILE, "../MANIFEST";

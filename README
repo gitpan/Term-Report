@@ -108,18 +108,32 @@ METHODS
     with the text it represents. $print is a flag indicating whether to
     immediately print the $text, or to delay it.
 
+  clear()
+    Clears the screen and resets currentRow to startRow. This is mostly for
+    re-using the report object within the same script.
+
 CHANGES
+       2003-06-11
+          + Caught bad savepoint names being passed to finePrint().
+             - These will now die().
+          + Fixed bug with finePrint() not correctly tracking currentRow.
+          + Don't exit() in DESTROY blocks any more. Just reset terminal.
+          + Changed 2nd parameter to printBarReport() from {} to [] to keep ordering correct.
+             - The old hash ref will still work, but ordering is not guaranteed.
+          + Added clear() method to clear the screen.
+             - Allows report object to be re-used. This must be called before StatusBar::reset().
+
        2003-05-06
-          Added "no warnings 'portable'" so Perl 5.8 would be happy.
-          Added ability to send in a file handle to print to.
+          + Added "no warnings 'portable'" so Perl 5.8 would be happy.
+          + Added ability to send in a file handle to print to.
 
        2003-01-27
-          Removed the dependency for Term::ANSIScreen.
-          Added savePoint() method for easy referncing of screen locations.
-          Adjusted finePrint() to work with savePoint().
-          Added 'cls' flag to constructor to clear the screen.
-          Cleaned up code a bit with minor optimizations.
-          Reduced screen flicker by quite a bit.
+          + Removed the dependency for Term::ANSIScreen.
+          + Added savePoint() method for easy referencing of screen locations.
+          + Adjusted finePrint() to work with savePoint().
+          + Added 'cls' flag to constructor to clear the screen.
+          + Cleaned up code a bit with minor optimizations.
+          + Reduced screen flicker by quite a bit.
 
 AUTHOR
     Shay Harding <sharding@ccbill.com>

@@ -1,7 +1,8 @@
-CHANGELOG
 MANIFEST
 Makefile.PL
 README
+examples/normalTest.pl
+examples/fileTest.pl
 tools/build_manifest.pl
 tools/build_readme.pl
 tools/package_up.pl

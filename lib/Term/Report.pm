@@ -3,16 +3,14 @@ no warnings 'portable';
 
 $|++;
 require 5.6.0;
-use Number::Format qw(format_number);
-use Term::StatusBar;
 our ($CR, $FH);
-our $VERSION = do { my @r=(q$Revision: 1.3 $=~/\d+/g); sprintf "%d."."%02d"x$#r,@r };
+our $VERSION = '1.16';
 
 
 sub new {
-  my ($class, %params) = @_;
+   my ($class, %params) = @_;
 
-  my $self = bless {
+   my $self = bless {
       curText     => undef,
       prevText    => undef,
       currentRow  => $params{startRow} || 1,
@@ -22,47 +20,59 @@ sub new {
       statusBar   => $params{statusBar},
       SP          => {},   ## Save point list
       noPrint     => 0,    ## Delays printing of text
-      fh          => $params{fh}       || *STDOUT,
-  }, ref $class || $class;
+      fh          => $params{fh} || *STDOUT,
+   }, ref($class) || $class;
 
-  $FH = $self->{fh};
+   $FH = $self->{fh};
 
-  ## Do we want to format numbers?
-  if ($self->{numFormat} eq '1'){
-    $self->{numFormat} = Number::Format->new(
+   ## Do we want to format numbers?
+   if ($self->{numFormat}){
+      if ($self->loadModule("Number::Format", "numFormat")){
+         if (ref($self->{numFormat}) ne 'ARRAY'){
+            $self->{numFormat} = Number::Format->new(
                     -MON_DECIMAL_POINT => ',',
                     -INT_CURR_SYMBOL => '',
                     -DECIMAL_DIGITS => 0,
-    );
-  }
-  elsif (ref $self->{numFormat} eq 'ARRAY'){
-    $self->{numFormat} = Number::Format->new(@{$self->{numFormat}});
-  }
+            );
+         }
+         else{
+            $self->{numFormat} = Number::Format->new(@{$self->{numFormat}});
+         }
+      }
+   }
 
-  ## Do we have a Term::StatusBar? 
-  if ($self->{statusBar} eq '1'){
-    $self->{statusBar} = Term::StatusBar->new(fh=>$self->{fh});
-  }
-  elsif (ref $self->{statusBar} eq 'ARRAY'){
-    push @{$self->{statusBar}}, ("fh", $self->{fh});
-    $self->{statusBar} = Term::StatusBar->new(@{$self->{statusBar}});
-  }
+   ## Do we have a Term::StatusBar? 
+   if ($self->{statusBar}){
+      if ($self->loadModule("Term::StatusBar", "statusBar")){
+         if (ref($self->{statusBar}) ne "ARRAY"){
+            $self->{statusBar} = Term::StatusBar->new(fh=>$self->{fh});
+         }
+         else{
+            push @{$self->{statusBar}}, ("fh", $self->{fh});
+            $self->{statusBar} = Term::StatusBar->new(@{$self->{statusBar}});
+         }
+      }
+   }
 
-  ## If Term::StatusBar is inside, we will override 
-  ## it's SIG{INT}. If not wrapped and called after 
-  ## we are created, SIG{INT} will not 'behave' and 
-  ## will drop the cursor on the 2nd row rather than 
-  ## 2 rows down from current cursor position.
-  $CR = \$self->{currentRow};
-  $SIG{INT} = \&{__PACKAGE__."::sigint"};
+   ## If Term::StatusBar is inside, we will override 
+   ## it's SIG{INT}. If not wrapped and called after 
+   ## we are created, SIG{INT} will not 'behave' and 
+   ## will drop the cursor on the 2nd row rather than 
+   ## 2 rows down from current cursor position.
+   $CR = \$self->{currentRow};
+   $SIG{INT} = \&{__PACKAGE__."::sigint"};
 
-  if (!defined $params{cls} || $params{cls}){ print $FH "\e[2J"; }
+   if (!defined $params{cls} || $params{cls}){ print $FH "\e[2J"; }
 
-  return $self;
+   return $self;
 }
 
 
-sub DESTROY { sigint(); }
+##
+## We don't call sigint() anymore since 
+## exit()'ing may be bad in some instances
+##
+sub DESTROY { print $FH "\e[$$CR;1H\e[0m\n\n"; }
 
 
 ##
@@ -70,26 +80,51 @@ sub DESTROY { sigint(); }
 ## need to be able to reset the display.
 ##
 sub sigint {
-  print $FH "\e[$$CR;1H\e[0m\n\n";
-  exit;
+   print $FH "\e[$$CR;1H\e[0m\n\n";
+   exit;
 }
 
+
+##
+## Attempt to load module 
+##
+
+sub loadModule {
+   my ($self, $module, $key) = @_;
+
+   eval "require $module";
+
+   if ($@){
+      $self->{$key} = 0;
+      return 0;
+   }
+   return 1;
+}
 
 ##
 ## Used to get/set object variables.
 ##
 sub AUTOLOAD {
-  my ($self, $val) = @_;
-  (my $method = $AUTOLOAD) =~ s/.*:://;
+   my ($self, $val) = @_;
+   (my $method = $AUTOLOAD) =~ s/.*:://;
 
-  if (exists $self->{$method}){
-    if (defined $val){
-      $self->{$method} = $val;
-    }
-    else{
-      return $self->{$method};
-    }
-  }
+   if (exists $self->{$method}){
+      if (defined $val){
+         $self->{$method} = $val;
+      }
+      else{
+         return $self->{$method};
+      }
+   }
+}
+
+
+##
+## Clears the screen
+##
+sub clear {
+   print $FH "\e[2J";
+   $self->{currentRow} = $self->{startRow};
 }
 
 
@@ -98,40 +133,45 @@ sub AUTOLOAD {
 ## cursor positioning.
 ##
 sub finePrint {
-  my ($self, $row, $col, @text) = @_;
-  my $text = join('', @text);
+   my ($self, $row, $col, @text) = @_;
+   my $text = join('', @text);
 
-  ## Passed a save point label
-  if ($row !~ /^\d+$/){
-    my $label = $row;
-    $row  = $self->{SP}->{$label}->row;
+   ## Passed a save point label
+   if ($row !~ /^\d+$/){
+      my $label = $row;
 
-    if (my $t = $self->{SP}->{$label}->text){
-      ## We only want to reset once to avoid 
-      ## flickering as much as possible
-      if (!$self->{SP}->{$label}->reset){
-        ## Clear current row to replace text
-        print $FH "\e[$row;1H\e[K";
-        $text = $t.$text;
-        $self->{SP}->{$label}->reset(1);
-        $col = $self->{SP}->{$label}->col;
+      if (!exists $self->{SP}->{$label}){
+         die "\e[20;0HNo SavePoint by the name <$label>\n";
+      }
+      $row  = $self->{SP}->{$label}->row;
+
+      if (my $t = $self->{SP}->{$label}->text){
+         ## We only want to reset once to avoid 
+         ## flickering as much as possible
+         if (!$self->{SP}->{$label}->reset){
+            ## Clear current row to replace text
+            print $FH "\e[$row;1H\e[K";
+            $text = $t.$text;
+            $self->{SP}->{$label}->reset(1);
+            $col = $self->{SP}->{$label}->col;
+         }
+         else{
+            $col = $self->{SP}->{$label}->textLen+1;
+         }
       }
       else{
-        $col = $self->{SP}->{$label}->textLen+1;
+         $col  = $self->{SP}->{$label}->textLen;
       }
-    }
-    else{
-      $col  = $self->{SP}->{$label}->textLen;
-    }
-  }
+   }
 
-  print $FH "\e[$row;${col}H";
+   print $FH "\e[$row;${col}H";
+   $self->{currentRow} = $row if $row > $self->{currentRow};
 
-  if ($self->{numFormat}){
-    $text =~ s/(\d+)/$self->{numFormat}->format_number($1)/sge;
-  }
+   if ($self->{numFormat}){
+      $text =~ s/(\d+)/$self->{numFormat}->format_number($1)/sge;
+   }
 
-  print $FH $text;
+   print $FH $text;
 }
 
 
@@ -201,19 +241,29 @@ sub lineLength {
 ##
 sub printBarReport {
   my ($self, $header, $config) = @_;
-
+  
   return if !defined $self->{statusBar};
   $self->printLine($header);
 
-  for my $k (keys %{$config}){
-    my $num = int(($self->{statusBar}->{scale}/$self->{statusBar}->{totalItems}) * $config->{$k});
-
-    if ($num < length($config->{$k})){
-      $num = length($config->{$k});
-    }
-
-    $self->printLine($k, "\e[7;37m\e[40m", $config->{$k}, " "x($num), "\e[0m\n");
+  ## Backwards compatibility
+  my $temp = [];
+  if (ref($config) eq 'HASH'){
+    ## Just flatten hash
+    @$temp = %$config;
+    $config = $temp;
   }
+
+  my $x=0;
+  for my $k (@$config){
+    my $num = int(($self->{statusBar}->{scale}/$self->{statusBar}->{totalItems}) * $config->[$x+1]);
+  
+    if ($num < length($config->[$x+1])){
+      $num = length($config->[$x+1]);
+    }
+  
+    $self->printLine($config->[$x], "\e[7;37m\e[40m", $config->[$x+1], " "x($num), "\e[0m\n");
+    $x+=2;
+  } 
 }
 
 
@@ -383,19 +433,39 @@ printLine() and remembers the position it was placed in, along with the
 text it represents. $print is a flag indicating whether to immediately 
 print the $text, or to delay it.
 
+=head2 clear()
+
+Clears the screen and resets currentRow to startRow. This is mostly for 
+re-using the report object within the same script.
+
 =head1 CHANGES
 
+=begin text
+
+
+   2003-06-11
+      + Caught bad savepoint names being passed to finePrint().
+         - These will now die().
+      + Fixed bug with finePrint() not correctly tracking currentRow.
+      + Don't exit() in DESTROY blocks any more. Just reset terminal.
+      + Changed 2nd parameter to printBarReport() from {} to [] to keep ordering correct.
+         - The old hash ref will still work, but ordering is not guaranteed.
+      + Added clear() method to clear the screen.
+         - Allows report object to be re-used. This must be called before StatusBar::reset().
+
    2003-05-06
-      Added "no warnings 'portable'" so Perl 5.8 would be happy.
-      Added ability to send in a file handle to print to.
+      + Added "no warnings 'portable'" so Perl 5.8 would be happy.
+      + Added ability to send in a file handle to print to.
 
    2003-01-27
-      Removed the dependency for Term::ANSIScreen.
-      Added savePoint() method for easy referncing of screen locations.
-      Adjusted finePrint() to work with savePoint().
-      Added 'cls' flag to constructor to clear the screen.
-      Cleaned up code a bit with minor optimizations.
-      Reduced screen flicker by quite a bit.
+      + Removed the dependency for Term::ANSIScreen.
+      + Added savePoint() method for easy referencing of screen locations.
+      + Adjusted finePrint() to work with savePoint().
+      + Added 'cls' flag to constructor to clear the screen.
+      + Cleaned up code a bit with minor optimizations.
+      + Reduced screen flicker by quite a bit.
+
+=end text
 
 =head1 AUTHOR
 
