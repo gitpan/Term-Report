@@ -4,7 +4,7 @@ no warnings 'portable';
 $|++;
 require 5.6.0;
 our ($CR, $FH);
-our $VERSION = '1.16';
+our $VERSION = '1.18';
 
 
 sub new {
@@ -62,25 +62,26 @@ sub new {
    $CR = \$self->{currentRow};
    $SIG{INT} = \&{__PACKAGE__."::sigint"};
 
-   if (!defined $params{cls} || $params{cls}){ print $FH "\e[2J"; }
+   if (!defined $params{cls} || $params{cls}){ print $FH "\033[2J\033[0;0H"; }
 
    return $self;
 }
 
 
 ##
-## We don't call sigint() anymore since 
-## exit()'ing may be bad in some instances
+## This must be done manually now since trying to do it 
+## in DESTROY causes problems in many instances
 ##
-sub DESTROY { print $FH "\e[$$CR;1H\e[0m\n\n"; }
-
+sub finished {
+	print $FH "\033[$$CR;1H\033[0m\n\n";
+}
 
 ##
 ## Just in case this isn't done in caller. We
 ## need to be able to reset the display.
 ##
 sub sigint {
-   print $FH "\e[$$CR;1H\e[0m\n\n";
+	finished();
    exit;
 }
 
@@ -123,7 +124,7 @@ sub AUTOLOAD {
 ## Clears the screen
 ##
 sub clear {
-   print $FH "\e[2J";
+   print $FH "\033[2J\033[0;0H";
    $self->{currentRow} = $self->{startRow};
 }
 
@@ -141,7 +142,7 @@ sub finePrint {
       my $label = $row;
 
       if (!exists $self->{SP}->{$label}){
-         die "\e[20;0HNo SavePoint by the name <$label>\n";
+         die "\033[20;0HNo SavePoint by the name <$label>\n";
       }
       $row  = $self->{SP}->{$label}->row;
 
@@ -150,7 +151,7 @@ sub finePrint {
          ## flickering as much as possible
          if (!$self->{SP}->{$label}->reset){
             ## Clear current row to replace text
-            print $FH "\e[$row;1H\e[K";
+            print $FH "\033[$row;1H\033[K";
             $text = $t.$text;
             $self->{SP}->{$label}->reset(1);
             $col = $self->{SP}->{$label}->col;
@@ -164,7 +165,7 @@ sub finePrint {
       }
    }
 
-   print $FH "\e[$row;${col}H";
+   print $FH "\033[$row;${col}H";
    $self->{currentRow} = $row if $row > $self->{currentRow};
 
    if ($self->{numFormat}){
@@ -189,7 +190,7 @@ sub printLine {
 
   if (!$self->{prevText}){
     $self->adjustCurRow(\$text);
-    print $FH "\e[$self->{currentRow};$self->{startCol}H";
+    print $FH "\033[$self->{currentRow};$self->{startCol}H";
     $self->{prevText} = $text;
   }
   else{
@@ -197,18 +198,18 @@ sub printLine {
       if ($text =~ /^\n/){
         $self->adjustCurRow(\$text);
         $self->{prevText} = $text;
-        print $FH "\e[$self->{currentRow};$self->{startCol}H";
+        print $FH "\033[$self->{currentRow};$self->{startCol}H";
       }
       else{
         $self->{prevText} .= $text;
-        print $FH "\e[$self->{currentRow};", (length($self->{prevText})), "H";
+        print $FH "\033[$self->{currentRow};", (length($self->{prevText})), "H";
       }
     }
     else{
       $self->{currentRow} += ($self->{prevText} =~ s/\n/\n/g);
       $self->adjustCurRow(\$text);
       $self->{prevText} = $text;
-      print $FH "\e[$self->{currentRow};$self->{startCol}H";
+      print $FH "\033[$self->{currentRow};$self->{startCol}H";
     }
   }
 
@@ -261,7 +262,7 @@ sub printBarReport {
       $num = length($config->[$x+1]);
     }
   
-    $self->printLine($config->[$x], "\e[7;37m\e[40m", $config->[$x+1], " "x($num), "\e[0m\n");
+    $self->printLine($config->[$x], "\033[7;37m\033[40m", $config->[$x+1], " "x($num), "\033[0m\n");
     $x+=2;
   } 
 }
@@ -436,12 +437,25 @@ print the $text, or to delay it.
 =head2 clear()
 
 Clears the screen and resets currentRow to startRow. This is mostly for 
-re-using the report object within the same script.
+re-using the report object within the same script. The actual cursor is 
+set to (0,0).
+
+=head2 finished()
+
+Accurately places the cursor at the last line of the 'report'.
+
 
 =head1 CHANGES
 
 =begin text
+   2003-08-11
+      + finished() must now be called to accurately place the cursor at the 
+        end of the 'report'. This was previously done in the destructor, but 
+        that causes problems.
 
+   2003-06-13
+      + When clearing screen, set cursor at (0,0).
+      + Changed escape sequence to \033.
 
    2003-06-11
       + Caught bad savepoint names being passed to finePrint().

@@ -54,3 +54,5 @@
       }
    );
 
+	$report->finished;
+

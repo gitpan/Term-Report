@@ -110,9 +110,17 @@ METHODS
 
   clear()
     Clears the screen and resets currentRow to startRow. This is mostly for
-    re-using the report object within the same script.
+    re-using the report object within the same script. The actual cursor is
+    set to (0,0).
+
+  finished()
+    Accurately places the cursor at the last line of the 'report'.
 
 CHANGES
+       2003-06-13
+          + When clearing screen, set cursor at (0,0).
+          + Changed escape sequence to \033.
+
        2003-06-11
           + Caught bad savepoint names being passed to finePrint().
              - These will now die().

@@ -37,3 +37,4 @@
       $status->update(length $_);
    }
 
+	$report->finished;
