@@ -1,0 +1,5 @@
+Makefile.PL
+MANIFEST
+lib/Term/Report.pm
+tools/build_manifest.pl
+tools/package_up.pl
