@@ -1,0 +1,71 @@
+NAME
+    Term::Report - Easy way to create dynamic 'reports' from within scripts.
+
+SYNOPSIS
+        use Term::Report;
+
+        my $report = Term::Report->new(
+                startRow => 3,
+                numFormat => 1,
+                statusBar => [label => 'Report Status: '],
+        );
+
+        my $status = $report->{statusBar};  ## Alias this cause I'm lazy
+        $status->setItems(10000);
+        $status->start;
+
+        my $string = "Total widgets I found so far... ";
+        $report->printLine($string);
+
+        for (1..10000){
+            sleep 1 if !$_ % 1000;
+            $report->finePrint($report->{currentRow}, length($string)+1, $_);
+            $status->update;
+        }
+
+        $report->printLine("\n\nAll done now\n\n");
+
+DESCRIPTION
+    Term::Report can be used to generate nicely formatted dynamic output. It
+    can also use Term::StatusBar to show progress and Number::Format to make
+    numbers more readable.
+
+METHODS
+  new(parameters)
+
+            startRow  - This indicates which row to start at. Default is 1.
+            startCol  - This indicates which column to start at. Default is 1.
+            numFormat - This indicates if you want to use Number::Format. Default is undef.
+            statusBar - This indicats if you want to use Term::StatusBar. Default is undef.
+
+    numFormat and statusBar can be passed in 2 different ways.
+
+    The first way is as a simple flag: numFormat => 1
+
+    Or as an array reference with parameters for a Number::Format object:
+    numFormat => [-MON_DECIMAL_POINT => ',', -INT_CURR_SYMBOL => '']
+
+    statusBar behaves the same way except takes parameters appropriate for
+    Term::StatusBar.
+
+  finePrint($row, $col, @text)
+
+    This gives more control over where to place text.
+
+  printLine(@text)
+
+    This places text after the last known text has been placed. It tries
+    very hard to "Do The Right Thing", but I am certain there are more
+    'bugs' in it.
+
+AUTHOR
+    Shay Harding <sharding@ccbill.com>
+
+COPYRIGHT
+    This library is free software; you may redistribute and/or modify it
+    under the same terms as Perl itself.
+
+SEE ALSO
+    the Term::StatusBar manpage, the Number::Format manpage, the
+    Term::ANSIScreen manpage
+
