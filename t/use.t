@@ -7,7 +7,6 @@
       plan tests => 1;
   }
 
-
   use Term::Report;
   ok(1);
   exit;

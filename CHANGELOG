@@ -1,3 +1,11 @@
+2003-01-27
+   + Removed the dependency for Term::ANSIScreen.
+   + Added savePoint() method for easy referncing of screen locations.
+   + Adjusted finePrint() to work with savePoint().
+   + Added 'cls' flag to constructor to clear the screen.
+   + Cleaned up code a bit with minor optimizations.
+   + Reduced screen flicker by quite a bit.
+
 4/8/2002
 	+ Removed the 'no MODULE;' calls since Perl 5.6.0 has problems 
       with it. 

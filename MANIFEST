@@ -2,8 +2,8 @@ Makefile.PL
 MANIFEST
 README
 CHANGELOG
-lib/Term/Report.pm
+t/use.t
 tools/build_manifest.pl
 tools/package_up.pl
 tools/build_readme.pl
-t/use.t
+lib/Term/Report.pm
